@@ -138,7 +138,8 @@ button{border-radius:12px;box-shadow:0 1px 2px rgba(0,0,0,.12)}
 <textarea id="pgn" rows="5" hidden placeholder="Tempel PGN di sini"></textarea></div></div>
 <div id="promo"><div></div></div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js" onerror="document.write('<script src=https://cdn.jsdelivr.net/npm/chess.js@0.10.3/chess.min.js><\/script>')"></script>
+<script>if(typeof Chess==='undefined'){document.body.innerHTML='<div style="padding:32px 20px;text-align:center;font-family:system-ui,sans-serif"><h2>Mesin catur gagal dimuat 😕</h2><p>Periksa koneksi internet, lalu muat ulang.</p><button onclick="location.reload()" style="padding:10px 18px;font-size:16px">Muat ulang</button></div>'}</script>
 <script>
 const G=new Chess(),FILES='abcdefgh';
 // ===== Karakter bidak (SVG) =====
@@ -190,7 +191,7 @@ function buildSkin(){
 }
 function rec(k){
  if(recG===gid||mode==='puz'||mode==='duo')return;
- recG=gid;scoreTxt='';
+ recG=gid;scoreTxt='';if(mode==='santai'||/^h[qrn]$/.test(vr)){scoreTxt='🎓 Partai latihan, tidak dihitung ke statistik';return}
  const o=k==='win'?'w':k==='draw'?'d':k==='time'?((clk.w<=0?'w':'b')===human?'l':'w'):'l';
  const hs=G.history({verbose:true}),L=ST.lv[level]=ST.lv[level]||{w:0,l:0,d:0},mc=Math.ceil(hs.length/2);
  ST.g=(ST.g||0)+1;L[o]++;
@@ -283,7 +284,7 @@ function finishAna(E){
  E=E.map(v=>Math.max(-1000,Math.min(1000,v)));
  const lab=RM.moves.map((m,i)=>{const loss=Math.max(0,m.color==='w'?E[i]-E[i+1]:E[i+1]-E[i]);
   let t=loss>200?'Blunder':loss>30?'Kurang tepat':'Bagus';
-  if(loss<=15&&(/#/.test(m.san)||m.promotion))t='Brilian';
+  const adv=m.color==='w'?E[i]:-E[i];if(loss<=15&&adv<=150&&(/#/.test(m.san)||m.promotion))t='Brilian';
   return{t,loss}});
  RAn={E,lab};anaRun=false;document.getElementById('rvt').textContent='Analisis selesai';rvShow();
 }
@@ -347,32 +348,14 @@ const WR=['Salah! Itu bukan skakmat 😅','Hmm, rajanya masih bisa kabur.','Buka
 const BOSS=[{lv:0,tm:'0',vr:'std',q:.25,d:'Standar. Sering salah langkah.'},{lv:1,tm:'0',vr:'std',q:.15,d:'Standar. Sering ketiduran.'},{lv:2,tm:'300,0',vr:'std',q:.08,d:'Blitz 5 menit.'},{lv:3,tm:'0',vr:'960',q:0,d:'Chess960 (tanpa rokade).'},{lv:4,tm:'180,2',vr:'std',q:0,d:'Blitz 3+2.'},{lv:5,tm:'0',vr:'std',q:0,d:'GM penuh. Semoga beruntung.'}];
 function pbub(t){const b=document.getElementById('bb');b.textContent=t;b.classList.remove('pop');void b.offsetWidth;b.classList.add('pop')}
 function mb(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
-const FBP=['k7/8/1K6/8/8/8/8/7R w - - 0 1','6k1/5ppp/8/8/8/8/8/R3K3 w - - 0 1','7k/8/6K1/8/8/8/8/1R6 w - - 0 1','7k/5Q2/6K1/8/8/8/8/8 w - - 0 1','6rk/6pp/8/6N1/8/8/8/K7 w - - 0 1','r1bqkbnr/pppp1ppp/2n5/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 4'];
 function fm1(){const rs=G.moves();return rs.length>0&&rs.every(r=>{G.move(r);const k=m1(G).length>0;G.undo();return k})}
 function m1(g){return g.moves({verbose:true}).filter(m=>m.san.slice(-1)==='#')}
-function genPuz(seed,dep,avoid){
- const R=mb(seed),T=new Chess(),t0=Date.now(),lim=dep===2?3500:3000;
- for(let a=0;a<3000&&Date.now()-t0<lim;a++){
-  T.reset();const n=14+(R()*40|0);
-  for(let i=0;i<n;i++){
-   const ms=T.moves();if(!ms.length)break;
-   T.move(ms[R()*ms.length|0]);
-   if(T.game_over())break;
-   if(i<11)continue;
-   const fen=T.fen();if(avoid&&avoid.includes(fen))continue;
-   const s=m1(T);
-   if(dep===1){if(s.length>=1&&s.length<=2)return{fen,dep:1,sol:s.map(m=>m.from+m.to)};continue}
-   if(s.length)continue;
-   const good=[];
-   for(const m of T.moves({verbose:true}).filter(x=>x.san.slice(-1)==='+')){
-    T.move(m.san);
-    if(!T.game_over()){const rs=T.moves();if(rs.length&&rs.every(r=>{T.move(r);const k=m1(T).length>0;T.undo();return k}))good.push(m.from+m.to)}
-    T.undo();
-   }
-   if(good.length>=1&&good.length<=2)return{fen,dep:2,sol:good};
-  }
- }
- return null;
+const PZ1=['k7/8/1K6/8/8/8/8/7R w - - 0 1','6k1/5ppp/8/8/8/8/8/R3K3 w - - 0 1','7k/8/6K1/8/8/8/8/1R6 w - - 0 1','7k/5Q2/6K1/8/8/8/8/8 w - - 0 1','6rk/6pp/8/6N1/8/8/8/K7 w - - 0 1','r1bqkbnr/pppp1ppp/2n5/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 4','6k1/5ppp/8/8/8/8/5PPP/3R2K1 w - - 0 1','7k/8/5K2/8/8/8/8/6Q1 w - - 0 1','r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 4'];
+const PZ2=[['6k1/8/8/8/8/8/1R6/R6K w - - 0 1','b2b7'],['1k6/8/8/8/8/8/6R1/K6R w - - 0 1','g2g7'],['r6k/1r6/8/8/8/8/8/6K1 b - - 0 1','b7b2'],['k6r/6r1/8/8/8/8/8/1K6 b - - 0 1','g7g2']];
+function pickPuz(i){
+ const d=new Date(),n=Math.floor((d.getTime()-d.getTimezoneOffset()*6e4)/864e5);
+ if(i===2){const q=PZ2[n%PZ2.length];return{fen:q[0],dep:2,sol:[q[1]]}}
+ return{fen:PZ1[(n*2+i)%PZ1.length],dep:1,sol:[]};
 }
 function startPuz(){const g=id=>document.getElementById(id);g('menu').hidden=true;g('game').hidden=false;g('game').dataset.m='puz';tbMode(false);pzSet=[];puzStart(0)}
 function puzStart(i){
@@ -383,8 +366,7 @@ function puzStart(i){
  setTimeout(()=>{
   if(id!==gid)return;
   let p=pzSet[i];
-  if(!p){const d=new Date(),s=d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate();
-   const sd=s*7+i*7919,av=pzSet.filter(Boolean).map(x=>x.fen);p=(i===2?genPuz(sd,2,av):null)||genPuz(sd,1,av)||{fen:FBP[(Math.floor(Date.now()/864e5)+i)%FBP.length],dep:1,sol:[]};pzSet[i]=p}
+  if(!p){p=pickPuz(i);pzSet[i]=p}
   pz=p;G.load(p.fen);human=G.turn();flip=human==='b';sel=null;legal=[];last=null;busy=false;hintReq=false;pzStep=0;pzTry=0;clkOn=false;
   g('clocks').style.display='none';g('res').style.display='none';g('game').dataset.v='std';g('board').classList.remove('blind','peek','face');vr='std';
   render();pbub('Skakmat dalam '+p.dep+' langkah. '+(human==='w'?'Putih':'Hitam')+' jalan!');
@@ -420,7 +402,7 @@ function startBoss(i){
  g('menu').hidden=true;g('game').hidden=false;g('game').dataset.m='boss';newGame();
 }
 function bossRes(k){
- bossWon=k==='win';
+ bossWon=k==='win'||(k==='time'&&(clk.w<=0?'w':'b')!==human);
  if(bossWon){try{localStorage.setItem('catur-boss',Math.max(bossMax(),bossIdx+1))}catch(e){}}
  document.getElementById('ra').textContent=bossWon?(bossIdx>=5?'Selesai 🏆':'Bos berikutnya'):'Coba lagi';
 }
@@ -513,8 +495,9 @@ function draw(){
  if(mode==='duo'){over=true;showRes('draw');return}
  if(prevS===null||lastS>=-100){over=true;say('remis');setTimeout(()=>showRes('draw'),700)}else say('tolak');
 }
+var hintSq=[],hintFen='';
 function showHint(u){
- if(mode!=='puz'){const mis=Math.random()<.3;hintLog.push(mis);if(mis){const ms=G.moves({verbose:true}).filter(m=>m.from+m.to!==u);if(ms.length){const m=ms[Math.random()*ms.length|0];u=m.from+m.to}}pbub(['Menurutku ini langkah bagus 😏','Coba yang ini deh 💡','Percaya sama aku 😇'][Math.random()*3|0])}const b=document.getElementById('board');[u.slice(0,2),u.slice(2,4)].forEach(s=>{const e=b.querySelector('[data-s="'+s+'"]');if(e)e.classList.add('hint')});status()}
+ if(mode!=='puz'){const mis=Math.random()<.3;hintLog.push(mis);if(mis){const ms=G.moves({verbose:true}).filter(m=>m.from+m.to!==u);if(ms.length){const m=ms[Math.random()*ms.length|0];u=m.from+m.to}}pbub(['Menurutku ini langkah bagus 😏','Coba yang ini deh 💡','Percaya sama aku 😇'][Math.random()*3|0])}hintSq=[u.slice(0,2),u.slice(2,4)];hintFen=G.fen();render();status()}
 function hint(){
  if(mode==='puz'){if(busy||over||!pz)return;if(pz.dep===1||pzStep===1){const mm=m1(G)[0];if(mm)showHint(mm.from+mm.to)}else showHint(pz.sol[0]);return}
  if(busy||over||G.turn()!==human)return;
@@ -635,12 +618,12 @@ $('lv').innerHTML=NAMES.map((n,i)=>`<option value="${i}"${i==2?' selected':''}>$
 
 function kingSq(c){const b=G.board();for(let r=0;r<8;r++)for(let f=0;f<8;f++){const p=b[r][f];if(p&&p.type==='k'&&p.color===c)return FILES[f]+(8-r)}}
 function render(){
-  const bd=G.board(),ck=G.in_check()?kingSq(G.turn()):null;let h='';
+  const bd=G.board(),ck=G.in_check()?kingSq(G.turn()):null,hf=hintFen===G.fen()?hintSq:[];let h='';
   for(let r=0;r<8;r++)for(let c=0;c<8;c++){
     const f=flip?7-c:c,rk=flip?r:7-r,sq=FILES[f]+(rk+1),p=bd[7-rk][f];
     let cl='sq '+((f+rk)%2?'l':'d');
     if(last&&(last[0]===sq||last[1]===sq))cl+=' lm';
-    if(sel===sq)cl+=' sel';
+    if(sel===sq)cl+=' sel';if(hf.includes(sq))cl+=' hint';
     if(ck===sq)cl+=' chk';
     if(legal.includes(sq))cl+=p?' cap':' mv';
     h+=`<div class="${cl}" data-s="${sq}">${p?`<span class="p ${p.color}">${pcs(p.type,p.color)}</span>`:''}</div>`;
@@ -682,12 +665,13 @@ function startDrag(e,sq,p){
   };
   window.addEventListener('pointermove',mv);window.addEventListener('pointerup',up);
 }
+var promoT=0;
 function tryMove(from,to){
   if(G.moves({square:from,verbose:true}).some(m=>m.to===to&&m.promotion)){
     const d=$('promo').firstElementChild;
-    d.innerHTML=['q','r','b','n'].map(x=>`<button data-p="${x}">${pcs(x,human)}</button>`).join('');
-    d.onclick=ev=>{const b=ev.target.closest('button');if(!b)return;$('promo').style.display='none';doMove({from,to,promotion:b.dataset.p})};
-    $('promo').style.display='flex';
+    d.innerHTML=['q','r','b','n'].map(x=>`<button data-p="${x}">${pcs(x,human)}</button>`).join('')+'<button data-c="1" aria-label="Batal" style="font-size:24px">✕</button>';
+    d.onclick=ev=>{const b=ev.target.closest('button');if(!b||Date.now()-promoT<350)return;$('promo').style.display='none';if(b.dataset.c){sel=null;legal=[];render();return}doMove({from,to,promotion:b.dataset.p})};
+    promoT=Date.now();$('promo').style.display='flex';
   }else doMove({from,to});
 }
 function doMove(m){
@@ -799,8 +783,9 @@ $('un').onclick=()=>{
   if(busy)return;
   G.undo();if(mode==='duo'){human=G.turn();flip=dmV()==='auto'&&human==='b'}else if(G.turn()!==human)G.undo();
   const h=G.history({verbose:true}),l=h[h.length-1];
-  last=l?[l.from,l.to]:null;sel=null;legal=[];render();
+  last=l?[l.from,l.to]:null;sel=null;legal=[];render();if(mode!=='duo'&&!over&&G.turn()!==human)botMove();
 };
+$('promo').onclick=ev=>{if(ev.target.id==='promo'&&Date.now()-promoT>350){$('promo').style.display='none';sel=null;legal=[];render()}};
 buildTheme();buildSkin();prefs();render();botUI();initSF();menuInit();
 </script>
 </body>
