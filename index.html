@@ -786,13 +786,14 @@ $('un').onclick=()=>{
   const h=G.history({verbose:true}),l=h[h.length-1];
   last=l?[l.from,l.to]:null;sel=null;legal=[];render();saveGame();if(mode!=='duo'&&!over&&G.turn()!==human)botMove();
 };
-function clearSave(){try{localStorage.removeItem('catur-resume')}catch(e){}}
+function clearSave(){try{localStorage.removeItem('catur-resume')}catch(e){}try{if(/^catur:/.test(window.name))window.name=''}catch(e){}}
+function saveRaw(j){try{localStorage.setItem('catur-resume',j)}catch(e){}try{window.name='catur:'+j}catch(e){}}
 function saveGame(){try{
  if(mode==='puz'||$('game').hidden||over||G.game_over()||!G.history().length){clearSave();return}
- localStorage.setItem('catur-resume',JSON.stringify({v:1,mode,vr,level,human,flip,sf:startFen,mv:G.history(),cw:clk.w,cb:clk.b,co:clkOn,inc,qe:Date.now()-qT,bi:bossIdx,fm:FM,ui:{lv:$('lv').value,sd:$('side').value,vrn:$('vrn').value,tm:$('tm').value,dm:$('dm').value}}));
+ saveRaw(JSON.stringify({v:1,mode,vr,level,human,flip,sf:startFen,mv:G.history(),cw:clk.w,cb:clk.b,co:clkOn,inc,qe:Date.now()-qT,bi:bossIdx,fm:FM,ui:{lv:$('lv').value,sd:$('side').value,vrn:$('vrn').value,tm:$('tm').value,dm:$('dm').value}}));
 }catch(e){}}
 function resumeGame(){
- let d=null;try{d=JSON.parse(localStorage.getItem('catur-resume')||'null')}catch(e){}
+ let d=null,r=null;try{r=localStorage.getItem('catur-resume')}catch(e){}if(!r&&/^catur:/.test(window.name))r=window.name.slice(6);try{d=JSON.parse(r||'null')}catch(e){}
  if(!d||d.v!==1||!d.mv||!d.mv.length)return;
  try{
   mode=d.mode;const u=d.ui;$('lv').value=u.lv;$('side').value=u.sd;$('vrn').value=u.vrn;$('tm').value=u.tm;$('dm').value=u.dm;
@@ -811,13 +812,17 @@ function resumeGame(){
   if(mode!=='duo'){pbub('Lanjut partai tadi ▶️');if(G.turn()!==human)botMove()}
  }catch(e){clearSave();G.reset();$('game').hidden=true;$('menu').hidden=false;mode='bot'}
 }
+(function(){let ok=false;try{localStorage.setItem('catur-t','1');localStorage.removeItem('catur-t');ok=true}catch(e){}
+ const d=document.createElement('div');d.style.cssText='font-size:12px;opacity:.75;text-align:center;margin:6px 12px';
+ d.textContent=ok?'💾 Simpan otomatis aktif':'⚠️ Penyimpanan browser diblokir: partai hanya selamat saat refresh, tidak saat tab ditutup. Buka lewat link https atau Chrome biasa, bukan dari pratinjau atau Buka file.';
+ document.getElementById('menu').appendChild(d)})();
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')saveGame()});
 addEventListener('pagehide',saveGame);
 (function(){
  let allow=false;const inGame=()=>!document.getElementById('game').hidden&&!over&&G.history().length>0,lv=document.getElementById('lvd'),stay=()=>{try{history.pushState({c:1},'')}catch(e){}};
  addEventListener('beforeunload',e=>{if(!allow&&inGame()){e.preventDefault();e.returnValue=''}});
- stay();
- addEventListener('popstate',()=>{if(allow)return;stay();document.getElementById('lvt').textContent=inGame()?'Partai masih berjalan. Tenang, partai otomatis tersimpan dan bisa dilanjutkan nanti.':'Yakin mau keluar dari game?';lv.style.display='flex'});
+ let armed=false;addEventListener('pointerdown',()=>{if(!armed){stay();armed=true}},true);
+ addEventListener('popstate',()=>{if(allow)return;armed=false;document.getElementById('lvt').textContent=inGame()?'Partai masih berjalan. Tenang, partai otomatis tersimpan dan bisa dilanjutkan nanti.':'Yakin mau keluar dari game?';lv.style.display='flex'});
  document.getElementById('lvs').onclick=()=>{lv.style.display='none'};
  document.getElementById('lvk').onclick=()=>{allow=true;lv.style.display='none';history.go(-2);setTimeout(()=>{allow=false},700)};
 })();
