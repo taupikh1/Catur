@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Catur Ngawur</title>
 <style>
 :root{--bg:#f4efe6;--fg:#2b2118;--card:#fff;--l:#f0d9b5;--d:#b58863;--sel:#f6f669;--lm:rgba(255,215,0,.45);--chk:#ff5a5a;--ac:#c0392b;
@@ -90,6 +90,7 @@ button{border-radius:12px;box-shadow:0 1px 2px rgba(0,0,0,.12)}
 #game[data-m="duo"] #spec,#game[data-m="duo"] #mv{display:none}
 #game[data-m="duo"]:not(.open) .tb,#game[data-m="duo"]:not(.open) #acts{display:none}
 #game[data-m="duo"] .tb button{max-width:none;font-size:.8rem}
+html,body{touch-action:pan-x pan-y}
 </style>
 </head>
 <body>
@@ -786,6 +787,8 @@ $('un').onclick=()=>{
   const h=G.history({verbose:true}),l=h[h.length-1];
   last=l?[l.from,l.to]:null;sel=null;legal=[];render();saveGame();if(mode!=='duo'&&!over&&G.turn()!==human)botMove();
 };
+['gesturestart','gesturechange','gestureend'].forEach(t=>document.addEventListener(t,e=>e.preventDefault()));
+document.addEventListener('touchmove',e=>{if(e.touches.length>1)e.preventDefault()},{passive:false});
 function clearSave(){try{localStorage.removeItem('catur-resume')}catch(e){}try{if(/^catur:/.test(window.name))window.name=''}catch(e){}}
 function saveRaw(j){try{localStorage.setItem('catur-resume',j)}catch(e){}try{window.name='catur:'+j}catch(e){}}
 function saveGame(){try{
