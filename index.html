@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#1c1c1e"><link rel="apple-touch-icon" href="icon-192.png"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes">
 <title>Catur Ngawur</title>
 <style>
 :root{--bg:#f4efe6;--fg:#2b2118;--card:#fff;--l:#f0d9b5;--d:#b58863;--sel:#f6f669;--lm:rgba(255,215,0,.45);--chk:#ff5a5a;--ac:#c0392b;
@@ -100,6 +101,7 @@ html,body{touch-action:pan-x pan-y}
 <button class="mc" data-m="duo"><b>👥 Main Berdua</b><small>Dua pemain gantian di satu layar</small></button>
 <button class="mc" data-m="santai"><b>😌 Mode Santai</b><small>Undo tanpa batas dan hint dari engine</small></button>
 <button class="mc" data-m="puz"><b>🧩 Puzzle Harian</b><small>3 soal skakmat, ganti tiap hari</small></button>
+<button class="mc" data-m="rush"><b>⚡ Puzzle Rush</b><small>3 menit, selesaikan sebanyak mungkin</small></button>
 <button class="mc" data-m="ngawur"><b>🤪 Mode Ngawur</b><small>Kejadian konyol acak tiap beberapa langkah</small></button>
 <button class="mc" data-m="boss"><b>👑 Tantangan Bos</b><small>Kalahkan 6 bos satu per satu</small></button>
 <button class="mc" data-m="imp"><b>📂 Impor / Ulang PGN</b><small>Tempel PGN, putar ulang, dan analisis</small></button>
@@ -110,7 +112,7 @@ html,body{touch-action:pan-x pan-y}
 <div class="row" id="r-th"><span>Tema papan</span></div>
 <div class="row" id="r-sk"><span>Karakter bidak</span><select id="skn"></select></div>
 <div class="row" id="r-tm"><span>Waktu</span><select id="tm"><option value="0">Tanpa jam</option><option value="60,0">Bullet 1 menit</option><option value="180,2">Blitz 3+2</option><option value="300,0">Blitz 5 menit</option><option value="600,5">Rapid 10+5</option></select></div>
-<div class="row" id="r-vr"><span>Varian</span><select id="vrn"><option value="std">Standar</option><option value="960">Chess960 (tanpa rokade)</option><option value="hq">Handicap: bot tanpa ratu</option><option value="hr">Handicap: bot tanpa benteng</option><option value="hn">Handicap: bot tanpa kuda</option><option value="blind">Mode Buta</option></select></div>
+<div class="row" id="r-vr"><span>Varian</span><select id="vrn"><option value="std">Standar</option><option value="960">Chess960 (tanpa rokade)</option><option value="hq">Handicap: bot tanpa ratu</option><option value="hr">Handicap: bot tanpa benteng</option><option value="hn">Handicap: bot tanpa kuda</option><option value="blind">Mode Buta</option><option value="kqk">Latihan akhir: Raja+Ratu vs Raja</option><option value="krk">Latihan akhir: Raja+Benteng vs Raja</option></select></div>
 <div class="row" id="r-an"><span>Animasi</span><button id="an">✨ Penuh</button></div></details>
 <button id="go">▶ Mulai Main</button><button id="bk">← Kembali</button></div>
 <div id="bosslist" hidden><h3 style="margin:0">👑 Tantangan Bos</h3><div id="bl"></div><button id="bk2">← Kembali</button></div></div>
@@ -193,10 +195,10 @@ function buildSkin(){
 }
 function rec(k){
  if(recG===gid||mode==='puz'||mode==='duo')return;
- recG=gid;scoreTxt='';if(mode==='santai'||/^h[qrn]$/.test(vr)){scoreTxt='🎓 Partai latihan, tidak dihitung ke statistik';return}
+ recG=gid;scoreTxt='';if(mode==='santai'||/^(h[qrn]|kqk|krk)$/.test(vr)){scoreTxt='🎓 Partai latihan, tidak dihitung ke statistik';return}
  const o=k==='win'?'w':k==='draw'?'d':k==='time'?((clk.w<=0?'w':'b')===human?'l':'w'):'l';
  const hs=G.history({verbose:true}),L=ST.lv[level]=ST.lv[level]||{w:0,l:0,d:0},mc=Math.ceil(hs.length/2);
- ST.g=(ST.g||0)+1;L[o]++;
+ ST.g=(ST.g||0)+1;L[o]++;{const R=[400,700,1000,1400,1900,2400][level]||1000,E=ST.elo||800;ST.elo=Math.round(E+24*((o==='w'?1:o==='d'?.5:0)-1/(1+Math.pow(10,(R-E)/400))));(ST.eh=ST.eh||[]).push(ST.elo);if(ST.eh.length>40)ST.eh.shift()}
  hs.forEach(m=>{if(m.color===human&&m.captured)ST.caps=(ST.caps||0)+1});
  if(o==='w'){ST.wins=(ST.wins||0)+1;ST.st=(ST.st||0)+1;ST.best=Math.max(ST.best||0,ST.st);ST.ls=0}
  else if(o==='l'){ST.st=0;ST.ls=(ST.ls||0)+1}
@@ -228,17 +230,18 @@ function rec(k){
 function recPuz(){if(recG===gid)return;recG=gid;ST.pz=(ST.pz||0)+1;if(!pzTry)ach('puz');save()}
 function showStats(){
  const q=id=>document.getElementById(id),L=ST.lv||{};
- let h=`<b>Total</b>: ${ST.g||0} partai · ${ST.wins||0} menang · streak ${ST.st||0} (terbaik ${ST.best||0})<br>Puzzle: ${ST.pz||0} · Bos: ${bossMax()}/6 · Rekor Skakmat Cepat: ${ST.q||0}<br><br><table style="width:100%;text-align:center"><tr><th style="text-align:left">Level</th><th>M</th><th>K</th><th>S</th></tr>`;
+ let h=`<b>Total</b>: ${ST.g||0} partai · ${ST.wins||0} menang · streak ${ST.st||0} (terbaik ${ST.best||0})<br>Puzzle: ${ST.pz||0} · Rekor Rush: ${ST.rush||0} · Bos: ${bossMax()}/6 · Rekor Skakmat Cepat: ${ST.q||0}<br><br><table style="width:100%;text-align:center"><tr><th style="text-align:left">Level</th><th>M</th><th>K</th><th>S</th></tr>`;
  NAMES.forEach((n,i)=>{const s=L[i]||{w:0,l:0,d:0};h+=`<tr><td style="text-align:left">${BOTS[i].av} ${n}</td><td>${s.w}</td><td>${s.l}</td><td>${s.d}</td></tr>`});
  h+='</table><small>M = menang, K = kalah, S = seri</small><br><br><b>Pencapaian ('+Object.keys(ST.a||{}).length+'/'+ACH.length+')</b><br>'+ACH.map(a=>(ST.a&&ST.a[a[0]]?'':'🔒 ')+a[1]).join('<br>');
- q('svb').innerHTML=h;q('sv').style.display='block';
+ q('svb').innerHTML=eloH()+h+histH();q('sv').style.display='block';
 }
 function stInit(){
  const q=id=>document.getElementById(id);
  q('svx').onclick=()=>{q('sv').style.display='none'};
+ q('svb').onclick=ev=>{const b=ev.target.closest('[data-h]');if(!b)return;const x=histL()[+b.dataset.h];if(!x)return;if(b.dataset.a==='c'){try{navigator.clipboard.writeText(x.p);b.textContent='✅'}catch(e){}return}q('sv').style.display='none';openRv(false);q('pgn').value=x.p;rvImport()};
  q('svr').onclick=()=>{
   if(!rsT){rsT=1;q('svr').textContent='Yakin? Tap lagi';setTimeout(()=>{rsT=0;q('svr').textContent='Reset data'},3000);return}
-  ST={lv:{},a:{}};save();['catur-boss','catur-th','catur-sk'].forEach(k=>{try{localStorage.removeItem(k)}catch(e){}});
+  ST={lv:{},a:{}};save();['catur-boss','catur-th','catur-sk','catur-hist'].forEach(k=>{try{localStorage.removeItem(k)}catch(e){}});
   rsT=0;q('svr').textContent='Reset data';buildTheme();buildSkin();showStats();
  };
 }
@@ -352,9 +355,9 @@ function pbub(t){const b=document.getElementById('bb');b.textContent=t;b.classLi
 function mb(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
 function fm1(){const rs=G.moves();return rs.length>0&&rs.every(r=>{G.move(r);const k=m1(G).length>0;G.undo();return k})}
 function m1(g){return g.moves({verbose:true}).filter(m=>m.san.slice(-1)==='#')}
-const PZ1=['k7/8/1K6/8/8/8/8/7R w - - 0 1','6k1/5ppp/8/8/8/8/8/R3K3 w - - 0 1','7k/8/6K1/8/8/8/8/1R6 w - - 0 1','7k/5Q2/6K1/8/8/8/8/8 w - - 0 1','6rk/6pp/8/6N1/8/8/8/K7 w - - 0 1','r1bqkbnr/pppp1ppp/2n5/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 4','6k1/5ppp/8/8/8/8/5PPP/3R2K1 w - - 0 1','7k/8/5K2/8/8/8/8/6Q1 w - - 0 1','r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 4'];
-const PZ2=[['6k1/8/8/8/8/8/1R6/R6K w - - 0 1','b2b7'],['1k6/8/8/8/8/8/6R1/K6R w - - 0 1','g2g7'],['r6k/1r6/8/8/8/8/8/6K1 b - - 0 1','b7b2'],['k6r/6r1/8/8/8/8/8/1K6 b - - 0 1','g7g2']];
-function pickPuz(i){
+const PZ1=['k7/8/1K6/8/8/8/8/7R w - - 0 1','6k1/5ppp/8/8/8/8/8/R3K3 w - - 0 1','7k/8/6K1/8/8/8/8/1R6 w - - 0 1','7k/5Q2/6K1/8/8/8/8/8 w - - 0 1','6rk/6pp/8/6N1/8/8/8/K7 w - - 0 1','r1bqkbnr/pppp1ppp/2n5/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 4','6k1/5ppp/8/8/8/8/5PPP/3R2K1 w - - 0 1','7k/8/5K2/8/8/8/8/6Q1 w - - 0 1','r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 4',"5br1/p3k1p1/3pqN2/1p3P1p/1P3PR1/1P1P1R2/1Br1Q2P/4K3 b - - 1 34","r1b1k1nr/ppp3p1/2n4q/P2p3p/1bPPp3/N1B2p2/1P2PPPP/2R1KBNR b Kkq - 0 13","rnb1k1nr/ppp3p1/7q/P2p3p/1bPPp3/N1B2p1N/1P2PPPP/2R1KB1R b Kkq - 2 14","rnb1k2r/ppp1n1p1/P6q/3p3p/1bPPp3/N1B2p1N/1P2PPPP/2R1KB1R b Kkq - 0 15","1rbn4/1pBk1p1p/3pqQrb/p3p2R/8/P1NP4/2PR1PB1/4K1N1 w - - 2 28","1rbn1b2/1pBk1p1p/3pqQr1/p3p2R/8/P2P4/2PR1PB1/3NK1N1 w - - 4 29","r1b2k1r/pppp3p/2n1p1p1/2b2p2/4P1P1/1P2qPP1/PBPPN1B1/RN1Q1K1R b - - 2 14","r1b2r2/1p1p4/p1p1p2p/1k2P3/2N2pp1/PP1PB1P1/4NKB1/R2Q4 w - - 0 38","2bk2r1/2Np1ppp/1p1bqn2/2p2n2/r1N2PP1/3KP2P/PPPP4/1RBQ2R1 b - - 4 20","2b1k3/p6p/Qrpqp3/3p1pPn/1P1PP2R/P1P4K/5R2/1NBB2N1 b - - 3 35","4k3/pb5p/Qrpqp3/3p1pPn/1P1PP2R/P1P4K/3R4/1NBB2N1 b - - 5 36","r2qk3/p3bp1r/2pp2p1/1p2pbPp/3Pn3/N2KP2Q/PPn1N1BP/R1B4R b q - 5 20","r2qk3/4bp1r/2pp2p1/pp2pbPp/3Pn3/N2KP2Q/PPn1N1BP/R1B2R2 b q - 1 21","r2qk3/4bp1r/2pp2p1/pp3bPp/3pn3/N2KP2Q/PPnBN1BP/R4R2 b q - 1 22","2bRrbn1/p4kp1/1p3B1r/4P2p/Pq1P4/3QRN1P/1PN1PKPR/8 w - - 1 38","2bRrbn1/p4kp1/1p3B1r/4P2p/P2P4/3QRN1P/1PNqP1PR/5K2 w - - 3 39","2bRrbn1/5kp1/pp3B1r/1Q2P2p/P2P4/4RN1P/1PNqP1PR/5K2 w - - 0 40","2bRr1n1/5kp1/pp3B1r/1Q2P2p/P2P4/b3RN1P/1P1qP1PR/5K2 w - - 0 41","2b1kb1r/rpp2p1p/6p1/p2qp3/n4BPN/N2P3P/PPn1BP2/R2Q1K1R b k - 1 15","2b1kb1r/r1p2p1p/1p4p1/p2qp3/n4BPN/3P3P/PPN1BP2/R2Q1K1R b k - 0 16","2b1kb1r/r1p2p1p/6p1/pp1qp3/n4BPN/3P3P/PPN1BP2/1R1Q1K1R b k - 1 17","2b1kb1r/r1p2p2/6p1/pp1qp2p/n5PN/3P2BP/PPN1BP2/1R1Q1K1R b k - 1 18","2b1kb1r/r1p5/6p1/pp1qpp1p/nN4PN/3P2BP/PP2BP2/1R1Q1K1R b k - 1 19","rnbqkb1r/2p1n1p1/pp1p3p/4p3/1PN1Kp2/1QPP1P2/P3P1PP/R1B2BNR b kq - 1 10","rnbq1b1r/2pkn1p1/pp1p3p/4p3/1PN1Kp2/1QPP1P2/P2BP1PP/R4BNR b - - 3 11","1nbq1b1r/r3n1p1/ppppk2p/4p3/PPN1Kp1P/2PP1P2/1Q1BP1P1/R4BNR b - h3 0 14","3qk3/1p2p1br/2p3rn/1NP1nbpp/pP1NP3/4Kp2/PB1Q1P1P/1R3B1R b - - 3 22","rnb1k3/3pp1Q1/p6r/2pP1p2/7P/P1P1qPP1/3P4/R1BK1BR1 w - - 3 39","r3kbnr/p3p1p1/n7/P1p2p1p/1Pp1P2P/2P1pq2/R2N1P2/2BQKB1R b kq b3 0 17","r3kbnr/p3p1p1/n7/P1p2p1p/1Pp1Pq1P/R1P1p3/3N1P2/2BQKB1R b kq - 2 18","2r1kbnr/p3p1p1/n7/P1p2p1p/1Pp1P2P/R1P1pN2/5P2/2BQKBqR b k - 8 21","r1n5/5k1p/3qn3/3pP1Pp/p1p3bP/P1P1K1b1/1P1N4/1R3BN1 b - - 1 39","r1n5/5k1p/3qn3/3pP1Pp/p1p3bb/P1P1K3/1P1N2B1/1R4N1 b - - 1 40","r1b1k2r/1ppp1ppp/3b3n/pQ2p3/1PPnP2P/q2PKNP1/P2N1P2/R4B1R b kq - 2 12","1rbq1bnr/p3p1B1/1pnpk3/2P2ppp/2P1P1Q1/NP5P/P3KPP1/R4BNR w - - 1 14","2b2b1r/prq1pnB1/1pn1k3/2Pp2p1/2P1P1pP/NP2K2R/P3B1P1/R5N1 w - - 1 22","3k3r/4np2/2r1b1pp/1P3Pb1/N2PNqPP/1P6/3P4/1RBK1R2 b - - 0 33","r1bk1br1/ppp2p1p/6p1/3pp3/P1Pnn1Pq/NP1PR3/4BP2/R1BQK1N1 b - - 5 14","1r4kr/6pp/1p1Q1P2/p4bN1/Pnp1P3/4B1P1/1PP1K1B1/RN6 w - - 4 28","1r4kr/6pp/1p3P2/p1Q2bN1/P1p1P3/3nB1P1/1PP1K1B1/RN6 w - - 6 29","3n1bn1/6p1/r4p1r/Q2pk2p/1N6/3B2P1/P7/R3K1B1 w - - 0 41","3r1b2/1b1k1pr1/5n1n/1p1pP2R/2PP2P1/1K5Q/3q3P/8 b - - 1 39","2br1b2/3k1pr1/5n1n/1p1pP2R/2PP2P1/1K3Q2/3q3P/8 b - - 3 40","r3nk1r/p1p4R/P1Pq4/1pP3P1/4p3/1Q1p1b2/6P1/RN2KB2 w - - 2 33","r3nk1r/p1p4R/P1q5/1pP3P1/4p3/NQ1p1b2/6P1/R3KB2 w - - 0 34","r2q1bn1/p1pnp2r/P1kp4/1p3p1p/1RPP1PpP/1P2B1P1/4b3/1N1QKBNR w K - 1 19","r2q2n1/p1pnp2r/P1kp3b/1p3p1p/1RPP1PpP/1P2B1P1/4b3/1NQ1KBNR w K - 3 20","r2q2n1/p1pnp2r/P1kp4/1p3p1p/1RPP1bpP/1P2B1P1/3Kb3/1NQ2BNR w - - 0 21","rR4n1/p1pnpkr1/P1qp4/5p1p/1P3KpP/1R4P1/4B3/1N1Q2N1 b - - 10 36","rR4n1/p1pnpkr1/P2p4/3q1p1p/1P3KpP/5RP1/4B3/1N1Q2N1 b - - 12 37","rR4n1/p1pnpkr1/P2p4/5K1p/1Pq3pP/5RP1/4B3/1N1Q2N1 b - - 0 38","2r1kbr1/1p2p2p/2NpK3/pq4p1/bn6/P5PP/2PP1P2/RNBQ1B1R b - - 0 24","2r1kbr1/1p2p2p/2NpK3/pq4p1/1nB5/Pb4PP/2PP1P2/RNBQ3R b - - 2 25","2r1kbr1/1p2p2p/2NpK3/pq1n2p1/2B2P2/Pb4PP/2PP4/RNBQ3R b - f3 0 26","2r1kbr1/1pn1p2p/2qpB3/p4Kp1/5P2/Pb4PP/2PP3R/RNBQ4 b - - 3 29","2r1kb2/1pn1p2p/2qpB1r1/p4Kp1/5P2/Pb4PP/2PP1R2/RNBQ4 b - - 5 30","r4b2/1p1Bpk1p/2qp2r1/pn3KP1/8/Pb4PP/2PPR3/RNBQ4 b - - 4 33","3r1b2/1p1Bpk1p/2qp2r1/pn3KP1/8/Pb4PP/2PPR3/RNB1Q3 b - - 6 34","rnb1kb2/1p1p3r/p1p1pB2/1N4pp/PP4n1/3Pq2P/2P1P1B1/RNQ1K2R b Qq - 0 16","2b3nr/r2pk3/1p2n1p1/p1b1P1Np/P1p1K1PP/2P2Bp1/RP1BP3/1N1q3Q b - - 6 33"];
+const PZ2=[['6k1/8/8/8/8/8/1R6/R6K w - - 0 1','b2b7'],['1k6/8/8/8/8/8/6R1/K6R w - - 0 1','g2g7'],['r6k/1r6/8/8/8/8/8/6K1 b - - 0 1','b7b2'],['k6r/6r1/8/8/8/8/8/1K6 b - - 0 1','g7g2'],["rNB2br1/pq2pkp1/3p1N2/1p3P1p/1P3P2/1P1P4/1RP1b2P/2BQK1R1 w - - 3 24", "c8e6"],["5bN1/p1r2k2/3pq3/1p3P1p/1P3P2/1P1PR3/1B2Q2P/4K1R1 w - - 1 39", "e2h5"],["r1b5/ppp1nkpr/n6q/3p3p/1BPPp3/b4p1N/1P2PPPP/3RKBR1 b - - 3 19", "a3b4"],["r2qk3/p3bp1r/2pp2p1/1p2pbPp/3P4/N1K1P2Q/PPn1NnBP/R1B4R b q - 3 19", "d8a5"],["2rqk3/4bp1r/2p2np1/1p1p1bPp/1p1KP2Q/N5N1/PP4nP/R4R1B b - - 1 28", "d5e4"],["4n1r1/1p2kp1p/r1ppb2Q/4P1p1/p1PP3q/3K1P2/Pbn5/RN3BN1 b - - 1 28", "e6f5"],["1n5r/3krp1p/6pP/2p3P1/1p2PRn1/qPbP1Q1N/1RK2P2/5B2 b - - 5 34", "a3b2"],["2r2br1/p1p3p1/1p2k3/1P3pP1/P1pPp2p/4P3/1q3R1Q/1nB1KBN1 b - - 7 37", "b2c1"],["5knr/r4P1p/p1p4b/6pP/8/Pq6/1P1KPPP1/5BNR b - - 0 34", "a7d7"],["2b3nr/r2pk3/1p1bn1p1/p3P1Np/P1p1K1PP/2P2Bp1/RP1BP3/1N1q2Q1 b - - 8 34", "c8b7"],["r1bBr3/2pB1n2/1k2p1p1/p4PPp/pP1p2nP/N1PPp3/1b5Q/1K4NR w - - 1 33", "h2c7"],["1r1Br3/2pb1n2/1k2p1P1/1B4Pp/pp1p2nP/2PPp3/1bN4Q/1K4NR w - - 0 36", "h2c7"],["3r3Q/4k1p1/np1p1pP1/2p1pR2/p1PPP2P/PP6/3bK1b1/1N6 w - - 1 39", "h8g7"],["r1n3r1/2p5/3p1kP1/1p1p1b1p/PPPP4/N1BQPBq1/4NP2/4RK2 b - - 12 34", "f5h3"],["r1b2N1r/p2pn3/1Qp2q1p/3k1p2/nP1P1b2/6PP/RNK1Pp2/2BQ1B1R w - - 4 24", "f1g2"],["b3k3/NP2b2r/4P1pp/2pQ4/P2P1Pn1/1PB5/3K2P1/2R3Nn w - - 0 39", "b7b8"],["r4b2/p1k5/2B1Q1pr/5P1p/PP1p1qpP/B1p2n2/K1P5/2R2R2 w - - 3 36", "e6d7"],["4r2r/pb2nk2/2p5/3ppp1p/1b1PP3/QN1K2Pp/PPP1BP1N/R1B3R1 b - - 1 22", "f5e4"],["4k1nr/rPp3p1/Q6p/4pp2/1p6/PPPPKP1P/1b2B1Pq/RN4NR w k - 5 24", "a6e6"],["1nk3nr/Q1N1b2p/2p1pp2/3pB1p1/PpP1P3/3P2PB/5P1P/2KR2NR w - - 0 18", "h3e6"],["2b3n1/2p2P2/1bp1pP1k/p6p/P6P/N1P5/8/RN2K1R1 w Q - 1 30", "f7f8"],["rk3bnr/3b1p2/p1p2npB/P2p3p/2pp2PP/6K1/NP2P3/R2Q1q1R b - - 3 28", "f8d6"],["r1b3nr/N1pp2b1/p6k/1p3P1p/2P3p1/3NqpP1/PP1P3P/1RB2K1R b - - 1 22", "e3e2"],["8/1bQpk1Np/2r4b/n2p1pr1/5P1R/p7/PB4BK/1R2q3 b - - 2 37", "e1g3"],["2n1kbn1/Pp5Q/4P1p1/pbp1BP2/P1P1p3/N2p2P1/3P3P/3RKBNR w K - 1 36", "h7f7"],["3k1br1/rp2q3/pP1p4/5b1p/1R1PPP2/2P2K1N/PB5P/5R2 b - - 3 34", "e7e4"],["1nbq1b1r/r2p1n2/p1p1p1Qp/2Pkp1P1/Pp1P3p/4P3/1P2BP2/RNB1K1R1 w Q - 1 24", "e3e4"],["2br4/3p1k1p/1p1Ppp1n/6R1/1NP1P1N1/2b1K3/4B1PP/5rR1 w - - 2 33", "g4h6"],["rnbq3r/1np2Qp1/pN3p2/1pPpbk1p/3PNP1P/4B3/PP2P1P1/R3KB1R w - d6 0 21", "e4g3"],["r1N3qr/1np2Qp1/p1n2p2/2Ppbk1p/1p1PNP1P/4B2R/PP2P1P1/2R1KB2 w - - 2 24", "e4g3"],["2Nr4/r1p2q2/p1nN4/2P2p1p/1p4kP/1R6/PP2PB2/2bK1B2 w - - 1 36", "f1h3"],["1n1r4/rb5p/2pk2pn/2pN1BP1/Q2p4/3P1p2/pR1B1K1P/q5NR w - - 4 39", "d2f4"],["5bkr/6pp/b2q4/1p3pPP/1p2Q3/1PNPpBR1/2P2P1N/5RK1 w - - 6 39", "e4d5"],["B1b3nr/2N1k1p1/1p3pQB/p1n1p3/8/q1pP2P1/1PP1KP1P/2R3NR w - - 0 24", "g6e8"],["bn2k3/r2p1r2/4p1p1/p1pn2Bp/6PP/PPPPP1R1/Q2K4/1R3qN1 b - - 0 31", "f7f2"],["rnb4k/ppbp4/2p4p/4pRQ1/PP2n3/N2BP1PP/1B1P4/4K3 w - - 0 30", "f5f8"],["1rb4k/pp1p4/n1pb3p/1P2pRQ1/P3n3/N2BP1PP/1B1P4/4K3 w - - 1 33", "g5h6"],["r3kb1r/p1p4p/2n1p3/2qP3P/1P1n1pP1/P2NBP2/1PQ1P1B1/RN1K4 b kq - 0 25", "c5c2"],["1rbr4/2n1p1B1/p2p1p2/Pq3PPp/1PBPP2P/N1P4k/2R1N3/5KRn w - - 1 33", "e2f4"],["2kr4/3n4/rq4N1/p3pnPN/b2bP3/P1P2B1p/1p5P/2R2KBR b - - 2 37", "b2c1"]];
+function pickPuz(i){if(rush){const a=PZ1.map(f=>({fen:f,dep:1,sol:[]})).concat(PZ2.map(q=>({fen:q[0],dep:2,sol:[q[1]]})));return a[Math.random()*a.length|0]}
  const d=new Date(),n=Math.floor((d.getTime()-d.getTimezoneOffset()*6e4)/864e5);
  if(i===2){const q=PZ2[n%PZ2.length];return{fen:q[0],dep:2,sol:[q[1]]}}
  return{fen:PZ1[(n*2+i)%PZ1.length],dep:1,sol:[]};
@@ -382,10 +385,10 @@ function puzAfter(){
   pzStep=1;busy=true;pbub('Bagus! Lawan menangkis. Sekarang matikan! 😎');
   setTimeout(()=>{if(id!==gid)return;const ms=G.moves(),m=G.move(ms[Math.random()*ms.length|0]);last=[m.from,m.to];busy=false;after()},650);return;
  }
- pzTry++;busy=true;pbub(WR[Math.random()*WR.length|0]);
+ if(rush&&++rX>=3){rushEnd();return}pzTry++;busy=true;pbub(WR[Math.random()*WR.length|0]);
  setTimeout(()=>{if(id!==gid)return;G.load(pz.fen);pzStep=0;last=null;sel=null;legal=[];busy=false;render()},1000);
 }
-function puzRes(){
+function puzRes(){if(rush){if(G.in_checkmate()){rS++;vib(30);pbub('+1 ✅');setTimeout(()=>{if(rush)rushNext()},500)}return}
  if(!G.in_checkmate())return;
  document.getElementById('rt').textContent='🧩 Puzzle '+(pzIdx+1)+' beres!'+(pzTry?' ('+pzTry+' salah)':' Sekali jalan! 🔥');
  document.getElementById('ra').textContent=pzIdx>=2?'Selesai 🎉':'Puzzle berikutnya';document.getElementById('rva').style.display='none';document.getElementById('rvl').textContent='';recPuz();
@@ -454,6 +457,7 @@ function setupPos(){
  const bc=mode==='duo'?'b':human==='w'?'b':'w',bd=document.getElementById('board');
  let fen=null;
  if(vr==='960'){const r=r960();fen=r+'/pppppppp/8/8/8/8/PPPPPPPP/'+r.toUpperCase()+' w - - 0 1'}
+ else if(vr==='kqk'||vr==='krk'){fen=endFen(vr,human)}
  else if(vr==='hq'||vr==='hr'||vr==='hn'){
   const i={hq:3,hr:0,hn:1}[vr],w='RNBQKBNR'.split(''),b='rnbqkbnr'.split('');let cr='KQkq';
   (bc==='w'?w:b)[i]='1';
@@ -469,23 +473,23 @@ function menuInit(){
  g('r-lv').appendChild(g('lv'));g('r-sd').appendChild(g('side'));g('r-th').appendChild(g('th'));g('menu').appendChild(g('badge'));
  const b0=document.querySelector('#game .bar');if(b0&&!b0.children.length)b0.remove();
  document.querySelectorAll('.mc').forEach(c=>c.onclick=()=>{
-  if(c.dataset.m==='imp'){openRv(false);return}if(c.dataset.m==='stat'){showStats();return}mode=c.dataset.m;if(mode==='puz'){startPuz();return}if(mode==='boss'){showBosses();return}g('modes').hidden=true;g('setup').hidden=false;
+  if(c.dataset.m==='imp'){openRv(false);return}if(c.dataset.m==='stat'){showStats();return}if(c.dataset.m==='rush'){rushStart();return}mode=c.dataset.m;if(mode==='puz'){startPuz();return}if(mode==='boss'){showBosses();return}g('modes').hidden=true;g('setup').hidden=false;
   g('r-lv').hidden=g('r-sd').hidden=mode==='duo';g('r-dm').hidden=mode!=='duo';g('r-tm').hidden=g('r-vr').hidden=mode==='quick';
   g('stt').textContent={bot:'🤖 Lawan Bot',duo:'👥 Main Berdua',santai:'😌 Mode Santai',ngawur:'🤪 Mode Ngawur',quick:'⚡ Skakmat Cepat'}[mode]});
  g('bk').onclick=()=>{g('setup').hidden=true;g('modes').hidden=false};
  document.querySelectorAll('#modes .mc').forEach(c=>{const b=c.querySelector('b'),m=b.textContent.match(/^(\S+)\s+(.+)$/);if(m){c.insertAdjacentHTML('afterbegin','<span class="ic">'+m[1]+'</span>');b.textContent=m[2]}});
- const ORD={bot:1,duo:2,santai:3,ngawur:4,puz:6,boss:7,quick:8,imp:10,stat:11};
+ const ORD={bot:1,duo:2,santai:3,ngawur:4,puz:6,rush:6,boss:7,quick:8,imp:10,stat:11};
  document.querySelectorAll('#modes .mc').forEach(c=>c.style.order=ORD[c.dataset.m]);
  [['bot','Main',0],['puz','Tantangan',5],['imp','Lainnya',9]].forEach(([m,t,o])=>{document.querySelector('#modes .mc[data-m="'+m+'"]').insertAdjacentHTML('beforebegin','<div class="sec" style="order:'+o+'">'+t+'</div>')});
  g('go').onclick=()=>{if(mode==='quick'){g('vrn').value='std';g('tm').value='0'}g('menu').hidden=true;g('game').hidden=false;g('game').dataset.m=mode;newGame()};
  g('mn').onclick=goMenu;g('tg').onclick=()=>g('game').classList.toggle('open');g('rm').onclick=goMenu;g('bk2').onclick=()=>{g('bosslist').hidden=true;g('modes').hidden=false};
- g('ra').onclick=()=>{g('res').style.display='none';if(mode==='puz'){pzIdx>=2?goMenu():puzStart(pzIdx+1);return}if(mode==='boss'){if(bossWon){if(bossIdx>=5){goMenu();return}bossIdx++}startBoss(bossIdx);return}newGame()};
+ g('ra').onclick=()=>{g('res').style.display='none';if(mode==='puz'){if(rushDone){rushDone=0;rushStart();return}pzIdx>=2?goMenu():puzStart(pzIdx+1);return}if(mode==='boss'){if(bossWon){if(bossIdx>=5){goMenu();return}bossIdx++}startBoss(bossIdx);return}newGame()};
  g('hn').onclick=hint;g('dr').onclick=draw;g('pk').onclick=()=>peek(1500);setInterval(tick,200);rvInit();
  g('rs').onclick=()=>{if(over)return;over=true;busy=false;showRes('resign')};
 }
-function goMenu(){clearSave();gid++;busy=false;const g=id=>document.getElementById(id);g('res').style.display='none';g('game').hidden=true;g('menu').hidden=false;g('setup').hidden=true;g('bosslist').hidden=true;g('modes').hidden=false}
+function goMenu(){clearInterval(rI);rush=0;clearSave();gid++;busy=false;const g=id=>document.getElementById(id);g('res').style.display='none';g('game').hidden=true;g('menu').hidden=false;g('setup').hidden=true;g('bosslist').hidden=true;g('modes').hidden=false}
 function showRes(k){
- clearSave();rec(k);if(mode==='puz'){puzRes();return}document.getElementById('ra').textContent='Main Lagi';document.getElementById('rva').style.display='';let e='🤝',t='Remis!';
+ clearSave();addHist(k);rec(k);if(mode==='puz'){puzRes();return}document.getElementById('ra').textContent='Main Lagi';document.getElementById('rva').style.display='';let e='🤝',t='Remis!';
  if(k==='win'){e='🎉';t=mode==='duo'?(G.turn()==='w'?'Hitam':'Putih')+' menang!':'Kamu menang!'}
  else if(k==='lose'){e='😈';t='Bot menang!'}
  else if(k==='time'){const lo=clk.w<=0?'w':'b';e='⏰';t=mode==='duo'?(lo==='w'?'Waktu Putih habis. Hitam menang!':'Waktu Hitam habis. Putih menang!'):lo===human?'Waktumu habis. Bot menang!':'Waktu bot habis. Kamu menang!'}
@@ -682,7 +686,7 @@ function doMove(m){
 }
 function after(){
   if(clkOn){const n=Date.now(),mv=G.turn()==='w'?'b':'w';clk[mv]=Math.max(0,clk[mv]-(n-lastT))+inc;lastT=n}
-  saveGame();peek(1000);
+  saveGame();vib(G.in_checkmate()?[80,40,160]:G.in_check()?[40,30,40]:8);peek(1000);
   if(mode==='puz'){render();reactMove();puzAfter();return}
   if(mode==='duo'){human=G.turn();flip=dmV()==='auto'&&human==='b'}
   render();
@@ -789,6 +793,25 @@ $('un').onclick=()=>{
 };
 ['gesturestart','gesturechange','gestureend'].forEach(t=>document.addEventListener(t,e=>e.preventDefault()));
 document.addEventListener('touchmove',e=>{if(e.touches.length>1)e.preventDefault()},{passive:false});
+var rush=0,rS=0,rX=0,rT=0,rI=0,rushDone=0;
+function vib(p){try{navigator.vibrate&&navigator.vibrate(p)}catch(e){}}
+function rushStart(){const g=id=>document.getElementById(id);mode='puz';rush=1;rushDone=0;rS=0;rX=0;rT=Date.now()+18e4;g('menu').hidden=true;g('game').hidden=false;g('game').dataset.m='puz';tbMode(false);clearInterval(rI);rI=setInterval(rushTick,500);rushNext()}
+function rushNext(){pzSet=[];puzStart(0)}
+function rushTick(){const l=rT-Date.now();if(l<=0){rushEnd();return}const s=Math.ceil(l/1000);document.getElementById('bn').textContent='⚡ Rush '+(s/60|0)+':'+String(s%60).padStart(2,'0')+' · Skor '+rS+' · ❌'+rX+'/3'}
+function rushEnd(){if(!rush)return;clearInterval(rI);rush=0;rushDone=1;busy=true;const nb=rS>(ST.rush||0);if(nb){ST.rush=rS;save()}const g=id=>document.getElementById(id);g('rt').textContent='⚡ Rush selesai! Skor '+rS+(nb?' 🏆 Rekor baru!':'');g('ra').textContent='Main lagi';g('rva').style.display='none';g('rvl').textContent='';g('res').style.display='flex'}
+function endFen(v,h){const sq=()=>Math.random()*64|0,adj=(a,b)=>Math.abs((a>>3)-(b>>3))<2&&Math.abs((a&7)-(b&7))<2;
+ for(;;){const k=sq(),p=sq(),d=sq();if(k===p||p===d||k===d||adj(k,d))continue;const b=Array(64).fill('1'),A=x=>h==='w'?x.toUpperCase():x;b[k]=A('k');b[p]=A(v==='kqk'?'q':'r');b[d]=h==='w'?'k':'K';
+  const f=[0,1,2,3,4,5,6,7].map(r=>b.slice(r*8,r*8+8).join('').replace(/1+/g,m=>m.length)).join('/'),T=new Chess();
+  if(!T.load(f+(h==='w'?' b':' w')+' - - 0 1')||T.in_check())continue;return f+' w - - 0 1'}}
+function histL(){try{return JSON.parse(localStorage.getItem('catur-hist')||'[]')}catch(e){return[]}}
+var histG=-1;
+function addHist(k){if(mode==='puz'||histG===gid)return;histG=gid;try{const hs=G.history();if(!hs.length)return;const L=new Chess(),o=k==='win'?'w':k==='draw'?'d':k==='time'?((clk.w<=0?'w':'b')===human?'l':'w'):'l';
+ if(startFen&&startFen!==new Chess().fen()){L.load(startFen);L.header('SetUp','1','FEN',startFen)}hs.forEach(m=>L.move(m));
+ const r=G.in_checkmate()?(G.turn()==='w'?'0-1':'1-0'):o==='d'?'1/2-1/2':(o==='w')===(human==='w')?'1-0':'0-1',d=new Date();
+ L.header('Event','Catur HP ('+mode+')','Date',d.toISOString().slice(0,10).replace(/-/g,'.'),'Result',r);
+ const H=histL();H.unshift({d:d.toLocaleDateString('id-ID',{day:'numeric',month:'short'}),m:mode,r,p:L.pgn()});localStorage.setItem('catur-hist',JSON.stringify(H.slice(0,20)))}catch(e){}}
+function histH(){const H=histL();return H.length?'<br><br><b>Riwayat partai ('+H.length+')</b>'+H.map((x,i)=>'<div style="margin:6px 0">'+x.d+' · '+x.m+' · '+x.r+' <button data-h="'+i+'" data-a="p">▶ Putar</button> <button data-h="'+i+'" data-a="c">📋</button></div>').join(''):''}
+function eloH(){const e=ST.eh||[];let t='📊 Perkiraan Elo: <b>'+(ST.elo||800)+'</b>';if(e.length>1){const lo=Math.min(...e),r=Math.max(Math.max(...e)-lo,1);t+='<br><svg viewBox="0 0 300 80" style="width:100%;height:80px"><polyline points="'+e.map((v,i)=>(i*300/(e.length-1)|0)+','+(70-(v-lo)*60/r|0)).join(' ')+'" fill="none" stroke="currentColor" stroke-width="2"/></svg>'}return t+'<br><small>Perkiraan dari hasil lawan bot, bukan rating resmi</small><br><br>'}
 function clearSave(){try{localStorage.removeItem('catur-resume')}catch(e){}try{if(/^catur:/.test(window.name))window.name=''}catch(e){}}
 function saveRaw(j){try{localStorage.setItem('catur-resume',j)}catch(e){}try{window.name='catur:'+j}catch(e){}}
 function saveGame(){try{
@@ -830,7 +853,7 @@ addEventListener('pagehide',saveGame);
  document.getElementById('lvk').onclick=()=>{allow=true;lv.style.display='none';history.go(-2);setTimeout(()=>{allow=false},700)};
 })();
 $('promo').onclick=ev=>{if(ev.target.id==='promo'&&Date.now()-promoT>350){$('promo').style.display='none';sel=null;legal=[];render()}};
-buildTheme();buildSkin();prefs();render();botUI();initSF();menuInit();resumeGame();
+buildTheme();buildSkin();prefs();render();botUI();initSF();menuInit();resumeGame();if('serviceWorker'in navigator&&/^https?:/.test(location.protocol))navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
 </body>
 </html>
